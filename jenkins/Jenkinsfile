@@ -1,5 +1,5 @@
 node {
    echo "${JOB_NAME}"
-   def repositoryName = JOB_NAME.split("_").get(1)
+   def repositoryName = JOB_NAME.split("_")[1]
    echo repositoryName
 }
