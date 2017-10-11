@@ -22,8 +22,8 @@ node {
 				}
 			}
 	tasksCopy["${repositoryGit.name}"] = {
-	                def src = new File("${JENKINS_HOME}/cardsBuild/${repositoryGit.name}/${repositoryGit.name}-1.0.0.jar")
-                    def dst = new File("${WORKSPACE}/${repositoryGit.name}/build/libs/${repositoryGit.name}-1.0.0.jar")
+	                def src = new File("${WORKSPACE}/${repositoryGit.name}/build/libs/${repositoryGit.name}-1.0.0.jar")
+                    def dst = new File("${JENKINS_HOME}/cardsBuild/${repositoryGit.name}")
                     dst << src.bytes
 
             }
