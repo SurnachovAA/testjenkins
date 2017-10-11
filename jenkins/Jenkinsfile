@@ -1,5 +1,47 @@
 node {
-   echo "${JOB_NAME}"
-   def repositoryName = JOB_NAME.split("_")[1]
-   echo repositoryName
+    echo "${JOB_NAME}"
+    echo "${JENKINS_HOME}"
+    def repositoryName = JOB_NAME.split("_")[1]
+
+    def tasksGit = [:]
+    def tasksGradle = [:]
+    def tasksCopy = [:]
+    def repositoryGit = new Repository(name: repositoryName, url: "https://github.com/RuslanDN/${repositoryName}.git")
+
+   	tasksGit["${repositoryGit.name}"] = {
+   				dir("${repositoryGit.name}") {
+   					def gitbr = git branch: params.branch, url: "${repositoryGit.url}"
+   					print gitbr
+   				}
+            }
+    tasksGradle["${params.repository}"] = {
+				dir("${params.repository}") {
+					sh "./gradlew clean build -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx128m"
+				}
+			}
+	tasksCopy["${params.repository}"] = {
+    				dir("${params.repository}") {
+    				    def src = new File('/var/www/jars/${repositoryGit.name}-1.0.0.jar')
+                        def dst = new File('${JENKINS_HOME}/cardsBuild/${repositoryGit.name}/${repositoryGit.name}-1.0.0.jar')
+                        dst << src.bytes
+    				}
+    			}
+
+
+   	stage("fetching sources") {
+         parallel tasksGit
+     }
+
+    stage("building sources") {
+        parallel tasksGradle
+    }
+    
+    stage("copy jars") {
+        parallel tasksCopy
+    }
+}
+
+class Repository implements Serializable {
+    String url
+    String name
 }
