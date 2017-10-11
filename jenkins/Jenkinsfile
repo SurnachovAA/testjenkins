@@ -10,7 +10,7 @@ node {
 
    	tasksGit["${repositoryGit.name}"] = {
    				dir("${repositoryGit.name}") {
-   					def gitbr = git branch: params.branch, url: "${repositoryGit.url}"
+   					def gitbr = git branch: 'master', url: "${repositoryGit.url}"
    					print gitbr
    				}
             }
@@ -35,7 +35,7 @@ node {
     stage("building sources") {
         parallel tasksGradle
     }
-    
+
     stage("copy jars") {
         parallel tasksCopy
     }
