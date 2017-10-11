@@ -14,18 +14,18 @@ node {
    					print gitbr
    				}
             }
-    tasksGradle["${params.repository}"] = {
-				dir("${params.repository}") {
+    tasksGradle["${repositoryGit.name}"] = {
+				dir("${repositoryGit.name}") {
 					sh "./gradlew clean build -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx128m"
 				}
 			}
-	tasksCopy["${params.repository}"] = {
-    				dir("${params.repository}") {
-    				    def src = new File('/var/www/jars/${repositoryGit.name}-1.0.0.jar')
-                        def dst = new File('${JENKINS_HOME}/cardsBuild/${repositoryGit.name}/${repositoryGit.name}-1.0.0.jar')
-                        dst << src.bytes
-    				}
-    			}
+	tasksCopy["${repositoryGit.name}"] = {
+                dir("${repositoryGit.name}") {
+                    def src = new File('/var/www/jars/${repositoryGit.name}-1.0.0.jar')
+                    def dst = new File('${JENKINS_HOME}/cardsBuild/${repositoryGit.name}/${repositoryGit.name}-1.0.0.jar')
+                    dst << src.bytes
+                }
+            }
 
 
    	stage("fetching sources") {
