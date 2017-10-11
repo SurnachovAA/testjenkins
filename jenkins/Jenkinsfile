@@ -1,6 +1,8 @@
 node {
     echo "${JOB_NAME}"
     echo "${JENKINS_HOME}"
+    echo "${WORKSPACE}"
+
     def repositoryName = JOB_NAME.split("_")[1]
 
     def tasksGit = [:]
