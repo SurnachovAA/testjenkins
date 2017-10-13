@@ -1,32 +1,43 @@
-node {
-    echo "${JOB_NAME}"
-    echo "${JENKINS_HOME}"
-    echo "${WORKSPACE}"
+import java.nio.file.Path
+import java.nio.file.Files
+import org.apache.commons.io.FilenameUtils
 
+node {
+    echo "JOB_NAME: ${JOB_NAME}"
     def repositoryName = JOB_NAME.split("_")[1]
+    echo "repositoryName: ${repositoryName}"
 
     def tasksGit = [:]
     def tasksGradle = [:]
-    def tasksCopy = [:]
+
+    def currentCommit
+
     def repositoryGit = new Repository(name: repositoryName, url: "https://github.com/RuslanDN/${repositoryName}.git")
+    def buildFolderPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild/${repositoryGit.name}/")
+    def buildYmlPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild/${repositoryGit.name}/build.yml")
+    def jarPath = FilenameUtils.separatorsToUnix("${WORKSPACE}/${repositoryGit.name}/build/libs/${repositoryGit.name}-1.0.0.jar")
+
+    def props = readProps(buildYmlPath)
+    echo "last build commit: " + props.lastCommit
 
    	tasksGit["${repositoryGit.name}"] = {
    				dir("${repositoryGit.name}") {
    					def gitbr = git branch: 'master', url: "${repositoryGit.url}"
-   					print gitbr
+   					currentCommit=gitbr.GIT_COMMIT
    				}
             }
     tasksGradle["${repositoryGit.name}"] = {
-				dir("${repositoryGit.name}") {
-					sh "./gradlew clean build -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx128m"
+				if (props.size() == 0 || !currentCommit .equals(props.lastCommit)) {
+    				dir("${repositoryGit.name}") {
+    					sh "./gradlew clean build -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx128m"
+    				}
+
+	                sh "cp ${jarPath} ${buildFolderPath}"
+
+    				props.lastCommit = currentCommit
+                    saveProps(buildYmlPath, props)
 				}
 			}
-	tasksCopy["${repositoryGit.name}"] = {
-	                def src = new File("${WORKSPACE}/${repositoryGit.name}/build/libs/${repositoryGit.name}-1.0.0.jar")
-                    def dst = new File("${JENKINS_HOME}/cardsBuild/${repositoryGit.name}")
-                    dst << src.bytes
-
-            }
 
 
    	stage("fetching sources") {
@@ -36,10 +47,22 @@ node {
     stage("building sources") {
         parallel tasksGradle
     }
+}
 
-    stage("copy jars") {
-        parallel tasksCopy
-    }
+void saveProps(buildYmlPath, props){
+    sh "rm ${buildYmlPath}"
+    writeYaml file: "${buildYmlPath}", data: props
+}
+
+def readProps (buildYmlPath) {
+  touch buildYmlPath
+  def props = readYaml file: "${buildYmlPath}"
+  if (props.size()==0) {
+      props = readYaml text: """
+          lastCommit: 'none'
+      """
+  }
+  return props
 }
 
 class Repository implements Serializable {
