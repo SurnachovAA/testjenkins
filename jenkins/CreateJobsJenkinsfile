@@ -1,0 +1,115 @@
+import org.apache.commons.io.FilenameUtils
+
+node {
+    properties([
+        parameters([
+            stringParam(
+                 defaultValue: 'transfer_configurations',
+                 description: '',
+                 name: 'supervisorBranch'
+               )
+        ])
+	])
+
+	print "params supervisorBranch:" +params.supervisorBranch
+
+    def tasksCreateBuildJobs = [:]
+
+    def repositorieSupervisor = new Repository(name: "supervisor", url: "https://github.com/RuslanDN/supervisor-configuration.git")
+	def envList = new Envs(envs: [])
+	Set allRepositories = []
+
+	def buildFolderPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild/${repositorieSupervisor.name}")
+
+
+    stage("fetching supervisor sources") {
+        dir("${repositorieSupervisor.name}") {
+			git branch: params.supervisorBranch, url: "${repositorieSupervisor.url}"
+		}
+    }
+    stage("copy supervisor sources") {
+        def configurationsSupervisorPath = FilenameUtils.separatorsToUnix("${WORKSPACE}/${repositorieSupervisor.name}/configurations")
+		sh "cp -avr ${configurationsSupervisorPath} ${buildFolderPath}"
+    }
+
+    stage("reading supervisord configuration") {
+        getFiles("${buildFolderPath}/configurations").each { fEnv ->
+            def envName = fEnv.split("/").last()
+            def env = new Env(name: envName, servers: [])
+            envList.envs.add(env)
+            getFiles(fEnv).each { fServer ->
+                def serverName = fServer.split("/").last()
+                def server = new Server(name: serverName, repositories: [])
+                env.servers.add(server)
+                getFiles(fServer).each { fConfig ->
+                    def configShortFileName = fConfig.split("/").last()
+                    if (configShortFileName.endsWith('.conf')) {
+                        server.repositories.add(configShortFileName.replace(".conf", ""))
+                        allRepositories.add(configShortFileName.replace(".conf", ""))
+                    }
+                }
+
+            }
+        }
+    }
+    stage("save configuration") {
+        saveProps( "${buildFolderPath}/configuration.json", envList)
+    }
+
+    stage("create build jobs") {
+        def script = ""
+        allRepositories.each { item ->
+			script = script+ '\n' + '''pipelineJob("build_'''+item+'''") {
+                                      definition {
+                                        cpsScm {
+                                          scm {
+                                            git {
+                                              remote {
+                                                name(\'origin\')
+                                                url(\'https://github.com/SurnachovAA/testjenkins.git\')
+                                              }
+                                              branch(\'master\')
+                                            }
+                                          }
+                                          scriptPath(\'jenkins/BuildJenkinsfile\')
+                                        }
+                                      }
+                                      parameters {
+                                        stringParam(\'branch\', \'master\', \'branch\')
+                                      }
+                                    }'''
+		}
+		jobDsl scriptText: script
+    }
+
+
+}
+
+void saveProps(buildJsonPath, props){
+    touch buildJsonPath
+    sh "rm ${buildJsonPath}"
+    net.sf.json.JSONObject JSO = net.sf.json.JSONObject.fromObject(props);
+    writeJSON file: "${buildJsonPath}", json: JSO, pretty: 4
+}
+
+def getFiles (path) {
+  return sh (returnStdout: true, script: "ls -d ${path}/*").readLines()
+}
+
+class Repository implements Serializable {
+    String url
+    String name
+}
+
+class Server implements Serializable {
+    String name
+    List<String> repositories
+}
+
+class Env implements Serializable {
+    String name
+    List<Server> servers
+}
+class Envs implements Serializable {
+    List<Env> envs
+}
