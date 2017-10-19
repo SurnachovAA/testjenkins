@@ -33,7 +33,7 @@ node {
 
    	tasksGit["${repositoryGit.name}"] = {
    				dir("${repositoryGit.name}") {
-   					def gitbr = git branch: 'master', url: "${repositoryGit.url}"
+   					def gitbr = git branch: params.branch, url: "${repositoryGit.url}"
    					currentCommit=gitbr.GIT_COMMIT
    				}
             }
