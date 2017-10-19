@@ -3,10 +3,21 @@ import java.nio.file.Files
 import org.apache.commons.io.FilenameUtils
 
 node {
+    properties([
+        parameters([
+            stringParam(
+                 defaultValue: 'master',
+                 description: '',
+                 name: 'branch'
+               )
+        ])
+	])
+
     echo "JOB_NAME: ${JOB_NAME}"
     def repositoryName = JOB_NAME.split("_")[1]
     echo "repositoryName: ${repositoryName}"
 
+    echo "branch: " + params.branch
     def tasksGit = [:]
     def tasksGradle = [:]
 
