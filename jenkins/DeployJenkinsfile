@@ -59,7 +59,10 @@ node {
 	print "params branch:" +params.branch
     print "params repositories:" +params.repositories
 
-    def paramRepositories = params.repositories.split("\\,")
+    def paramRepositories = []
+    if (params.repositories != null){
+        def paramRepositories = params.repositories.split("\\,")
+    }
 
    def tasksBuildService = [:]
    def tasksDeployService = [:]
