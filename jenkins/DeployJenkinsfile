@@ -1,82 +1,133 @@
-import java.nio.file.Path
-import java.nio.file.Files
 import org.apache.commons.io.FilenameUtils
+import com.cwctravel.hudson.plugins.extended_choice_parameter.ExtendedChoiceParameterDefinition
 
 node {
-    properties([
+
+    def configuration = readProps( "${buildFolderPath}/supervisor/configuration.json")
+
+    def repositoriesParameter = new ExtendedChoiceParameterDefinition(
+        "repositories",
+        "PT_CHECKBOX",
+        configuration.repositories.join(","),
+        null,//project name
+        null,
+        null,
+        null,
+        null,// bindings
+        null,
+        null, // propertykey
+        "", //default value
+        null,
+        null,
+        null,
+        null, //default bindings
+        null,
+        null,
+        null, //descriptionPropertyValue
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,// javascript file
+        null, // javascript
+        false, // save json param to file
+        false, // quote
+        10, // visible item count
+        "",
+        ","
+    )
+	properties([
         parameters([
+            choice(choices: 'dev\ntest\nprod', description: 'The target environment', name: 'env'),
             stringParam(
                  defaultValue: 'master',
                  description: '',
                  name: 'branch'
-               )
+               ),
+            repositoriesParameter
         ])
 	])
 
-    echo "JOB_NAME: ${JOB_NAME}"
-    def repositoryName = JOB_NAME.split("_")[1]
-    echo "repositoryName: ${repositoryName}"
+    print "params branch:" +params.env
+	print "params branch:" +params.branch
+    print "params repositories:" +params.repositories
 
-    echo "branch: " + params.branch
-    def tasksGit = [:]
-    def tasksGradle = [:]
+    def paramRepositories = params.repositories.split("\\,")
 
-    def currentCommit
+    def buildFolderPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild")
 
-    def repositoryGit = new Repository(name: repositoryName, url: "https://github.com/RuslanDN/${repositoryName}.git")
-    def buildFolderPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild/${repositoryGit.name}/")
-    def buildYmlPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild/${repositoryGit.name}/build.yml")
-    def jarPath = FilenameUtils.separatorsToUnix("${WORKSPACE}/${repositoryGit.name}/build/libs/${repositoryGit.name}-1.0.0.jar")
+   def tasksBuildService = [:]
+   def tasksDeployService = [:]
+   def tasksUploadingConfiguration = [:]
+   def tasksUpdatingSupervisor = [:]
+   configuration.envs.each { envir ->
+        print envir.name
+        print params.env
+       if (envir.name == params.env) {
+           Set usedServers = []
+           envir.servers.each { server ->
+    			server.repositories.each{repository ->
+				    def isFind = paramRepositories.findAll{repository.toLowerCase().contains(it.toLowerCase())}.any{true}
+				    isFind = isFind && paramRepositories.findAll{it.toLowerCase().contains(repository.toLowerCase())}.any{true}
+				    isFind = isFind || paramRepositories.findAll{'all'.toLowerCase().contains(it.toLowerCase())}.any{true}
+				    print repository +" isFind = "+ isFind
+					if (isFind){
+					    usedServers.add(server.name)
+						tasksBuildService["${server.name}:${repository}"] = {
+							print "build service ${server.name} ${repository} ${params.branch}"
 
-    def props = readProps(buildYmlPath)
-    echo "last build commit: " + props.lastCommit
+							def includedJob = build job: "build_${repository}", parameters: [
+								string(name: "branch", value: params.branch)
+							]
+							println includedJob.rawBuild.log
+						}
+						tasksDeployService["${server.name}:${repository}"] = {
+							print "deploy service ${server.name} ${repository}"
 
-   	tasksGit["${repositoryGit.name}"] = {
-   				dir("${repositoryGit.name}") {
-   					def gitbr = git branch: params.branch, url: "${repositoryGit.url}"
-   					currentCommit=gitbr.GIT_COMMIT
-   				}
-            }
-    tasksGradle["${repositoryGit.name}"] = {
-				if (props.size() == 0 || !currentCommit .equals(props.lastCommit)) {
-    				dir("${repositoryGit.name}") {
-    					sh "./gradlew clean build -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx128m"
-    				}
-
-	                sh "cp ${jarPath} ${buildFolderPath}"
-
-    				props.lastCommit = currentCommit
-                    saveProps(buildYmlPath, props)
+							sh "ssh -p 22222 techuser@${server.name}.open.ru supervisorctl stop ${repository}"
+            				sh "ssh -p 22222 techuser@${server.name}.open.ru mkdir -p /var/www/jars/${repository}"
+            				sh "scp -P 22222 ${buildFolderPath}/${repository}/*.jar techuser@${server.name}.open.ru:/var/www/jars/${repository}"
+            				sh "ssh -p 22222 techuser@${server.name}.open.ru supervisorctl update ${repository}"
+            				sh "ssh -p 22222 techuser@${server.name}.open.ru supervisorctl start ${repository}"
+						}
+					}
 				}
-			}
+           }
+           usedServers.each { serverName ->
+                tasksUploadingConfiguration["${serverName}"] = {
+                        sh "scp -P 22222 -r ${buildFolderPath}/supervisor/${params.env}/${serverName}/* techuser@${serverName}.open.ru:/var/www/conf/"
+                    }
+                tasksUpdatingSupervisor["${serverName}"] = {
+    					sh "ssh -p 22222 techuser@${serverName}.open.ru supervisorctl reread"
+    				}
+           }
 
+       }
+   }
 
-   	stage("fetching sources") {
-         parallel tasksGit
-     }
-
-    stage("building sources") {
-        parallel tasksGradle
+   stage("building services") {
+        parallel tasksBuildService
     }
+
+   stage("uploading configuration") {
+        parallel tasksUploadingConfiguration
+    }
+
+    stage("updating supervisor") {
+        parallel tasksUpdatingSupervisor
+    }
+
+    stage("deploying services") {
+        parallel tasksDeployService
+    }
+
 }
 
-void saveProps(buildYmlPath, props){
-    sh "rm ${buildYmlPath}"
-    writeYaml file: "${buildYmlPath}", data: props
-}
+def readProps(buildJsonPath){
+    touch buildJsonPath
+    def result = readJSON file: buildJsonPath
+    return result
 
-def readProps (buildYmlPath) {
-  touch buildYmlPath
-  def props = readYaml file: "${buildYmlPath}"
-  if (props.size()==0) {
-      props = readYaml text: """
-          lastCommit: 'none'
-      """
-  }
-  return props
-}
-
-class Repository implements Serializable {
-    String url
-    String name
 }

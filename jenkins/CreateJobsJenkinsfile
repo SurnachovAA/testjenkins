@@ -84,7 +84,7 @@ node {
     }
 
     stage("create deploy services jobs") {
-            def script = '''pipelineJob("build_'''+item+'''") {
+            def script = '''pipelineJob("test_deploy_servers") {
                                           definition {
                                             cpsScm {
                                               scm {
@@ -102,6 +102,8 @@ node {
                                         }'''
     		}
     		jobDsl scriptText: script
+    		def includedJob = build job: "test_deploy_servers"
+            println includedJob.rawBuild.log
         }
 
 
@@ -134,5 +136,5 @@ class Env implements Serializable {
 }
 class Envs implements Serializable {
     List<Env> envs
-    List<Repository> repositories
+    List<String> repositories
 }
