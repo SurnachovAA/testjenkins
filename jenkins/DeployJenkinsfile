@@ -2,7 +2,7 @@ import org.apache.commons.io.FilenameUtils
 import com.cwctravel.hudson.plugins.extended_choice_parameter.ExtendedChoiceParameterDefinition
 
 node {
-
+    def buildFolderPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild")
     def configuration = readProps( "${buildFolderPath}/supervisor/configuration.json")
 
     def repositoriesParameter = new ExtendedChoiceParameterDefinition(
@@ -55,8 +55,6 @@ node {
     print "params repositories:" +params.repositories
 
     def paramRepositories = params.repositories.split("\\,")
-
-    def buildFolderPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild")
 
    def tasksBuildService = [:]
    def tasksDeployService = [:]
