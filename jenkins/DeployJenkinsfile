@@ -7,7 +7,7 @@ node {
 
     def repositories = ""
     for(int i = 0; i < configuration.repositories.length(); i++){
-        repositories+= configuration.repositories.getJSONObject(i);
+        repositories+= configuration.repositories[i];
     }
 
     def repositoriesParameter = new ExtendedChoiceParameterDefinition(
