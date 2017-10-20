@@ -6,9 +6,7 @@ node {
     def configuration = readProps( "${buildFolderPath}/supervisor/configuration.json")
 
     def repositories = []
-    echo configuration.repositories
     configuration.repositories.each { repo ->
-        echo repo
         repositories.add(repo)
     }
 
