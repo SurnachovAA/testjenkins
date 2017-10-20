@@ -8,7 +8,7 @@ node {
     def repositoriesParameter = new ExtendedChoiceParameterDefinition(
         "repositories",
         "PT_CHECKBOX",
-        configuration.repositories.join(","),
+        configuration.repositories.toString();
         null,//project name
         null,
         null,
