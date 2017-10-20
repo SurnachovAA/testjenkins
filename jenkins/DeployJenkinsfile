@@ -5,15 +5,15 @@ node {
     def buildFolderPath = FilenameUtils.separatorsToUnix("${JENKINS_HOME}/cardsBuild")
     def configuration = readProps( "${buildFolderPath}/supervisor/configuration.json")
 
-    def repositories = ""
-    for(int i = 0; i < configuration.repositories.length(); i++){
-        repositories+= configuration.repositories[i];
+    def repositories = []
+    configuration.repositories.each { repo ->
+        repositories.add(repo)
     }
 
     def repositoriesParameter = new ExtendedChoiceParameterDefinition(
         "repositories",
         "PT_CHECKBOX",
-        repositories,
+        repositories.join(","),
         null,//project name
         null,
         null,
