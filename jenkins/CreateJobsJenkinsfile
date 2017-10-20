@@ -51,6 +51,7 @@ node {
 
             }
         }
+        envList.repositories = allRepositories
     }
     stage("save configuration") {
         saveProps( "${buildFolderPath}/configuration.json", envList)
@@ -82,6 +83,27 @@ node {
 		jobDsl scriptText: script
     }
 
+    stage("create deploy services jobs") {
+            def script = '''pipelineJob("build_'''+item+'''") {
+                                          definition {
+                                            cpsScm {
+                                              scm {
+                                                git {
+                                                  remote {
+                                                    name(\'origin\')
+                                                    url(\'https://github.com/SurnachovAA/testjenkins.git\')
+                                                  }
+                                                  branch(\'master\')
+                                                }
+                                              }
+                                              scriptPath(\'jenkins/DeployJenkinsfile\')
+                                            }
+                                          }
+                                        }'''
+    		}
+    		jobDsl scriptText: script
+        }
+
 
 }
 
@@ -112,4 +134,5 @@ class Env implements Serializable {
 }
 class Envs implements Serializable {
     List<Env> envs
+    List<Repository> repositories
 }
