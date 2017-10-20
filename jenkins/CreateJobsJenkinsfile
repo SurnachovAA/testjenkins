@@ -84,27 +84,27 @@ node {
     }
 
     stage("create deploy services jobs") {
-            def script = '''pipelineJob("test_deploy_servers") {
-                                          definition {
-                                            cpsScm {
-                                              scm {
-                                                git {
-                                                  remote {
-                                                    name(\'origin\')
-                                                    url(\'https://github.com/SurnachovAA/testjenkins.git\')
-                                                  }
-                                                  branch(\'master\')
-                                                }
+        def script = '''pipelineJob("test_deploy_servers") {
+                                      definition {
+                                        cpsScm {
+                                          scm {
+                                            git {
+                                              remote {
+                                                name(\'origin\')
+                                                url(\'https://github.com/SurnachovAA/testjenkins.git\')
                                               }
-                                              scriptPath(\'jenkins/DeployJenkinsfile\')
+                                              branch(\'master\')
                                             }
                                           }
-                                        }'''
-    		}
-    		jobDsl scriptText: script
-    		def includedJob = build job: "test_deploy_servers"
-            println includedJob.rawBuild.log
-        }
+                                          scriptPath(\'jenkins/DeployJenkinsfile\')
+                                        }
+                                      }
+                                    }'''
+
+        jobDsl scriptText: script
+        def includedJob = build job: "test_deploy_servers"
+        println includedJob.rawBuild.log
+    }
 
 
 }
