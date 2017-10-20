@@ -61,7 +61,7 @@ node {
 
     def paramRepositories = []
     if (params.repositories != null){
-        def paramRepositories = params.repositories.split("\\,")
+        paramRepositories = params.repositories.split("\\,")
     }
 
    def tasksBuildService = [:]
